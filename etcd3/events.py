@@ -1,8 +1,11 @@
 class Event(object):
 
-    def __init__(self, event):
+    def __init__(self, event, revision, sub_revision, last):
         self.key = event.kv.key
         self._event = event
+        self.revision = revision
+        self.sub_revision = sub_revision
+        self.last = last
 
     def __getattr__(self, name):
         if name.startswith('prev_'):
@@ -23,7 +26,7 @@ class DeleteEvent(Event):
     pass
 
 
-def new_event(event):
+def new_event(event, revision, sub_revision, last=False):
     """
     Wrap a raw gRPC event in a friendlier containing class.
 
@@ -38,4 +41,4 @@ def new_event(event):
     else:
         raise Exception('Invalid op_name')
 
-    return cls(event)
+    return cls(event, revision, sub_revision, last)
