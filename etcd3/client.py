@@ -544,7 +544,7 @@ class Etcd3Client(object):
             raise exceptions.WatchTimedOut()
 
     @_handle_errors
-    def watch(self, key, **kwargs):
+    def watch(self, key, timeout=None, **kwargs):
         """
         Watch a key.
 
@@ -555,7 +555,11 @@ class Etcd3Client(object):
             for event in events_iterator:
                 print(event)
 
+        If the timeout was specified and event didn't arrive, method
+        will raise ``WatchTimedOut`` exception.
+
         :param key: key to watch
+        :param timeout: (optional) timeout in seconds to wait for each event.
 
         :returns: tuple of ``events_iterator`` and ``cancel``.
                   Use ``events_iterator`` to get the events of key changes
@@ -577,7 +581,11 @@ class Etcd3Client(object):
         @_handle_errors
         def iterator():
             while not canceled.is_set():
-                event = event_queue.get()
+                try:
+                    event = event_queue.get(timeout=timeout)
+                except queue.Empty:
+                    canceled.set()
+                    raise exceptions.WatchTimedOut()
                 if event is None:
                     canceled.set()
                 if isinstance(event, Exception):
@@ -589,11 +597,16 @@ class Etcd3Client(object):
         return iterator(), cancel
 
     @_handle_errors
-    def watch_prefix(self, key_prefix, **kwargs):
-        """Watches a range of keys with a prefix."""
+    def watch_prefix(self, key_prefix, timeout=None, **kwargs):
+        """
+        Watches a range of keys with a prefix.
+
+        If the timeout was specified and event didn't arrive, method
+        will raise ``WatchTimedOut`` exception.
+        """
         kwargs['range_end'] = \
             utils.increment_last_byte(utils.to_bytes(key_prefix))
-        return self.watch(key_prefix, **kwargs)
+        return self.watch(key_prefix, timeout=timeout, **kwargs)
 
     @_handle_errors
     def watch_once(self, key, timeout=None, **kwargs):
