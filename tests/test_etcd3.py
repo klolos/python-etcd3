@@ -275,6 +275,13 @@ class TestEtcd3(object):
 
         t.join()
 
+        # Test timeout
+        events_iterator, cancel = etcd.watch('foo', timeout=1)
+        with pytest.raises(etcd3.exceptions.WatchTimedOut):
+            for _ in events_iterator:
+                pass
+        cancel()
+
     def test_watch_key_with_revision_compacted(self, etcd):
         etcdctl('put', '/random', '1')  # Some data to compact
 
@@ -410,6 +417,13 @@ class TestEtcd3(object):
                 cancel()
 
         t.join()
+
+        # Test timeout
+        events_iterator, cancel = etcd.watch_prefix('foo', timeout=1)
+        with pytest.raises(etcd3.exceptions.WatchTimedOut):
+            for _ in events_iterator:
+                pass
+        cancel()
 
     def test_sequential_watch_prefix_once(self, etcd):
         try:
