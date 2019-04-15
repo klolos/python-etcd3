@@ -102,37 +102,19 @@ class EtcdTokenCallCredentials(grpc.AuthMetadataPlugin):
 class Etcd3Client(object):
     def __init__(self, host='localhost', port=2379,
                  ca_cert=None, cert_key=None, cert_cert=None, timeout=None,
-                 user=None, password=None, grpc_options=None):
+                 user=None, password=None, grpc_options=None,
+                 grpc_channel=None):
 
         self._url = '{host}:{port}'.format(host=host, port=port)
         self.metadata = None
-
-        cert_params = [c is not None for c in (cert_cert, cert_key)]
-        if ca_cert is not None:
-            if all(cert_params):
-                credentials = self._get_secure_creds(
-                    ca_cert,
-                    cert_key,
-                    cert_cert
-                )
-                self.uses_secure_channel = True
-                self.channel = grpc.secure_channel(self._url, credentials,
-                                                   options=grpc_options)
-            elif any(cert_params):
-                # some of the cert parameters are set
-                raise ValueError(
-                    'to use a secure channel ca_cert is required by itself, '
-                    'or cert_cert and cert_key must both be specified.')
-            else:
-                credentials = self._get_secure_creds(ca_cert, None, None)
-                self.uses_secure_channel = True
-                self.channel = grpc.secure_channel(self._url, credentials,
-                                                   options=grpc_options)
-        else:
-            self.uses_secure_channel = False
-            self.channel = grpc.insecure_channel(self._url,
-                                                 options=grpc_options)
-
+        self.uses_shared_channel = True
+        self.channel = grpc_channel
+        if self.channel is None:
+            self.uses_shared_channel = False
+            self.channel = self._create_channel(ca_cert=ca_cert,
+                                                cert_key=cert_key,
+                                                cert_cert=cert_cert,
+                                                grpc_options=grpc_options)
         self.timeout = timeout
         self.call_credentials = None
 
@@ -168,9 +150,37 @@ class Etcd3Client(object):
         self.maintenancestub = etcdrpc.MaintenanceStub(self.channel)
         self.transactions = Transactions()
 
+    def _create_channel(self, ca_cert=None, cert_key=None, cert_cert=None,
+                        grpc_options=None):
+        cert_params = [c is not None for c in (cert_cert, cert_key)]
+        if ca_cert is not None:
+            if all(cert_params):
+                credentials = self._get_secure_creds(
+                    ca_cert,
+                    cert_key,
+                    cert_cert
+                )
+                self.uses_secure_channel = True
+                return grpc.secure_channel(self._url, credentials,
+                                           options=grpc_options)
+            elif any(cert_params):
+                # some of the cert parameters are set
+                raise ValueError(
+                    'to use a secure channel ca_cert is required by itself, '
+                    'or cert_cert and cert_key must both be specified.')
+            else:
+                credentials = self._get_secure_creds(ca_cert, None, None)
+                self.uses_secure_channel = True
+                return grpc.secure_channel(self._url, credentials,
+                                           options=grpc_options)
+        else:
+            self.uses_secure_channel = False
+            return grpc.insecure_channel(self._url, options=grpc_options)
+
     def close(self):
         """Call the GRPC channel close semantics."""
-        self.channel.close()
+        if not self.uses_shared_channel:
+            self.channel.close()
 
     def __enter__(self):
         return self
@@ -1154,7 +1164,7 @@ class Etcd3Client(object):
 
 def client(host='localhost', port=2379,
            ca_cert=None, cert_key=None, cert_cert=None, timeout=None,
-           user=None, password=None, grpc_options=None):
+           user=None, password=None, grpc_options=None, grpc_channel=None):
     """Return an instance of an Etcd3Client."""
     return Etcd3Client(host=host,
                        port=port,
@@ -1164,4 +1174,5 @@ def client(host='localhost', port=2379,
                        timeout=timeout,
                        user=user,
                        password=password,
-                       grpc_options=grpc_options)
+                       grpc_options=grpc_options,
+                       grpc_channel=grpc_channel)
