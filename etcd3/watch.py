@@ -47,6 +47,15 @@ class Watcher(object):
         self._callback_thread = None
         self._new_watch_cond = threading.Condition(lock=self._lock)
         self._new_watch = None
+        self.closed = False
+        self.response_iter = None
+
+    def close(self):
+        with self._lock:
+            self.closed = True
+            self._request_queue.put(None)
+            if self.response_iter is not None:
+                self.response_iter.cancel()
 
     def _create_watch_request(self, key, range_end=None, start_revision=None,
                               progress_notify=False, filters=None,
@@ -120,12 +129,16 @@ class Watcher(object):
 
     def _run(self):
         while True:
-            response_iter = self._watch_stub.Watch(
-                _new_request_iter(self._request_queue),
-                credentials=self._credentials,
-                metadata=self._metadata)
+            with self._lock:
+                if self.closed:
+                    _log.debug("Callback thread exiting")
+                    return
+                self.response_iter = self._watch_stub.Watch(
+                    _new_request_iter(self._request_queue),
+                    credentials=self._credentials,
+                    metadata=self._metadata)
             try:
-                for rs in response_iter:
+                for rs in self.response_iter:
                     self._handle_response(rs)
 
             except grpc.RpcError as err:
