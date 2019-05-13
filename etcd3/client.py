@@ -107,7 +107,11 @@ class Etcd3Client(object):
         self._url = '{host}:{port}'.format(host=host, port=port)
         self.metadata = None
         self.shared_channel = channel is not None
-        self.channel = channel or self._create_channel()
+        if channel is None:
+            channel = self._create_channel(ca_cert=ca_cert, cert_key=cert_key,
+                                           cert_cert=cert_cert,
+                                           grpc_options=grpc_options)
+        self.channel = channel
         self.timeout = timeout
         self.call_credentials = None
 
