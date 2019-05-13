@@ -622,6 +622,7 @@ class Etcd3Client(object):
                     response = response_queue.get(timeout=timeout)
                 except queue.Empty:
                     canceled.set()
+                    self.cancel_watch(watch_id)
                     raise exceptions.WatchTimedOut()
                 if response is None:
                     canceled.set()
