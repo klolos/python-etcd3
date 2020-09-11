@@ -95,9 +95,13 @@ class Put(object):
 
 
 class Get(object):
-    def __init__(self, key, range_end=None):
+    def __init__(self, key, range_end=None, limit=None, sort_order=None,
+                 revision=None):
         self.key = key
         self.range_end = range_end
+        self.limit = limit
+        self.sort_order = sort_order
+        self.revision = revision
 
 
 class Delete(object):

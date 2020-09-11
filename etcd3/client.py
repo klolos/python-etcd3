@@ -228,6 +228,10 @@ class Etcd3Client(object):
         range_request.keys_only = keys_only
         if range_end is not None:
             range_request.range_end = utils.to_bytes(range_end)
+        if revision is not None:
+            range_request.revision = revision
+        if limit is not None:
+            range_request.limit = limit
 
         if sort_order is None:
             range_request.sort_order = etcdrpc.RangeRequest.NONE
@@ -767,7 +771,11 @@ class Etcd3Client(object):
                 request_ops.append(request_op)
 
             elif isinstance(op, transactions.Get):
-                request = self._build_get_range_request(op.key, op.range_end)
+                order = op.sort_order
+                request = self._build_get_range_request(op.key, op.range_end,
+                                                        limit=op.limit,
+                                                        sort_order=order,
+                                                        revision=op.revision)
                 request_op = etcdrpc.RequestOp(request_range=request)
                 request_ops.append(request_op)
 
